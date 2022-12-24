@@ -1,0 +1,67 @@
+import time
+from datetime import datetime as dt
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+
+
+def daily_price_history(choosen_stock, from_date, to_date, time_interval):
+    query_string = f"https://query1.finance.yahoo.com/v7/finance/download/{choosen_stock}?period1={from_date}&period2={to_date}&interval={time_interval}&events=history&includeAdjustedClose=true"
+
+    data = pd.read_csv(query_string)
+    data = data.dropna()
+    data_frame = pd.DataFrame(data)
+    data_frame["timestamp"] = pd.to_datetime(data_frame["Date"])
+
+    return data_frame
+
+
+choosen_stock = input("Enter share name: ")  # Eg: MANALIPETC
+choosen_stock = choosen_stock + ".NS"
+from_date = int(time.mktime(dt(2012, 10, 7, 16, 00).timetuple()))
+to_date = int(time.mktime(dt(2022, 10, 7, 16, 00).timetuple()))
+time_interval = "1d"
+
+# Loading dataset
+stock = daily_price_history(choosen_stock, from_date, to_date, time_interval)
+
+# Columns which we will use to fit our model
+required_features = ["High", "Low", "Open", "Volume"]
+
+# Target variable
+output_label = "Close"
+
+# Splitting the stock dataset into train and test parts
+x_train, x_test, y_train, y_test = train_test_split(
+    stock[required_features], stock[output_label], test_size=0.3, train_size=0.3
+)
+
+# Creating model
+model = LinearRegression()
+model.fit(x_train, y_train)
+
+# Predicting price
+prediction = model.predict(stock[required_features])
+
+# Test accuracy of result
+accuracy = float(model.score(x_test, y_test))
+
+# Prediction graph
+plt.figure(figsize=(12, 6))
+
+plt.plot(stock["timestamp"], stock["Close"], color="#000000", lw=2, label="Original")
+plt.plot(
+    stock["timestamp"],
+    prediction,
+    color="deeppink",
+    lw=1,
+    label=f"Prediction | Accuracy: {accuracy * 100:.3f}%",
+)
+
+plt.title(choosen_stock, size=24)
+plt.xlabel("Time", size=18)
+plt.ylabel("Price", size=18)
+plt.legend()
+
+plt.show()
