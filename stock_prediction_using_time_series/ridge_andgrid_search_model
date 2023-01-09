@@ -1,0 +1,42 @@
+import yfinance as yf
+import numpy as np
+from sklearn.linear_model import Ridge
+from sklearn.model_selection import GridSearchCV
+from sklearn.preprocessing import MinMaxScaler
+
+# Get the stock data for a specific ticker
+ticker = yf.Ticker("AAPL")
+df = ticker.history(period="max")
+
+# Remove the last row of the data
+df = df[:-2]
+print(df)
+
+# Select the 'Open', 'Close', 'High', 'Low', and 'Volume' columns as the features to be used for prediction
+X = df[['Volume', 'High', 'Low', 'Open', 'Close']].values
+
+# Shift the feature data by 1 day so that the target for each row is the next day's 'Open', 'Close', 'High', 'Low', and 'Volume' values
+y = np.roll(X, -1, axis=0)
+
+# Remove the last row from the feature and target arrays, as it will not have a corresponding target
+X = X[:-1]
+y = y[:-1]
+
+# Scale the feature data using min-max scaling
+scaler = MinMaxScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Create the model and use grid search to find the best hyperparameters
+model = Ridge()
+param_grid = {'alpha': [0.1, 10], 'solver': ['auto']}
+grid_search = GridSearchCV(model, param_grid, cv=5)
+grid_search.fit(X_scaled, y)
+
+# Use the best model to make predictions for the next day's 'Open', 'Close', 'High', 'Low', and 'Volume' values
+next_day_predictions = grid_search.predict(X_scaled[-1].reshape(1, -1))
+
+print(f"Predicted values for next day: ")
+print(f"High: {round(next_day_predictions[0][1], 2)}")
+print(f"Low: {round(next_day_predictions[0][2], 2)}")
+print(f"Open: {round(next_day_predictions[0][3], 2)}")
+print(f"Close: {round(next_day_predictions[0][4], 2)}")
