@@ -1,0 +1,46 @@
+import yfinance as yf
+import numpy as np
+from sklearn.linear_model import Ridge
+from skopt import BayesSearchCV
+from sklearn.preprocessing import MinMaxScaler
+import warnings
+
+warnings.simplefilter('ignore', UserWarning)
+
+# Get the stock data for a specific ticker
+ticker = yf.Ticker("AAPL")
+df = ticker.history(period="max")
+
+# Remove the last row of the data
+df = df[:-18]
+print(df)
+
+# Select the 'Open', 'Close', 'High', 'Low', and 'Volume' columns as the features to be used for prediction
+X = df[['Open', 'Close', 'High', 'Low', 'Volume']].values
+
+# Shift the feature data by 1 day so that the target for each row is the next day's 'Open', 'Close', 'High', 'Low', and 'Volume' values
+y = np.roll(X, -1, axis=0)
+
+# Remove the last row from the feature and target arrays, as it will not have a corresponding target
+X = X[:-1]
+y = y[:-1]
+
+# Scale the feature data using min-max scaling
+scaler = MinMaxScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Create the model and use Bayes search to find the best hyperparameters
+model = Ridge()
+param_grid = {'alpha': (0.01, 10), 'solver': ['auto']}
+bayes_search = BayesSearchCV(model, param_grid, cv=5)
+bayes_search.fit(X_scaled, y)
+
+# Use the best model to make predictions for the next day's 'Open', 'Close', 'High', 'Low', and 'Volume' values
+next_day_predictions = bayes_search.predict(X_scaled[-1].reshape(1, -1))
+
+print(f"Predicted values for next day: ")
+print(f"Open: {next_day_predictions[0][0]:.2f}")
+print(f"Close: {next_day_predictions[0][1]:.2f}")
+print(f"High: {next_day_predictions[0][2]:.2f}")
+print(f"Low: {next_day_predictions[0][3]:.2f}")
+print(f"Volume: {next_day_predictions[0][4]}")
