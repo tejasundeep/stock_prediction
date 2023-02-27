@@ -1,35 +1,30 @@
-# Univariate lstm example
+# Import required libraries
 import numpy as np
+import yfinance as yf
 from keras.models import Sequential
-from keras.layers import LSTM
-from keras.layers import Dense
+from keras.layers import LSTM, Dense
+from keras import backend
 
-import yfinance as yf #Import yfinance library
-
-#Get stock historical data
+# Get stock historical data
 stock_data = yf.Ticker("TCS.NS").history(period="max")
-stock_data = stock_data[:-2]
-#print(stock_data)
+stock_data = stock_data[:-8]
+print(stock_data)
 
 # Get last n days data
 get_last_thirty_days_data = stock_data[-30:]
 
 # Split a univariate sequence into samples
 def split_sequence(sequence, n_steps):
-    x_column, y_column = list(), list()
+    x_column, y_column = [], []
     for i in range(len(sequence)):
-        # Find the end of this pattern
         end_ix = i + n_steps
-        # Check if we are beyond the sequence
         if end_ix > len(sequence) - 1:
             break
-        # Gather input and output parts of the pattern
         seq_x, seq_y = sequence[i:end_ix], sequence[end_ix]
         x_column.append(seq_x)
         y_column.append(seq_y)
 
     return np.array(x_column), np.array(y_column)
-
 
 # Define input sequence
 raw_seq = np.array(stock_data["Close"])
@@ -57,5 +52,7 @@ model.fit(x_column, y_column, epochs=200, verbose=1)
 x_input = np.array([get_last_thirty_days_data["Close"]])
 x_input = x_input.reshape((1, n_steps, n_features))
 predicted_y = model.predict(x_input, verbose=0)
-
 print(predicted_y)
+
+# Clear session
+backend.clear_session()
