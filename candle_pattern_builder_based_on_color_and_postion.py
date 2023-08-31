@@ -20,11 +20,21 @@ def build_pattern(window: pd.DataFrame) -> str:
                 pattern = "R"
 
             prev_close = window['Close'].iloc[i-1]
+            current_open = window['Open'].iloc[i]
+            current_close = window['Close'].iloc[i]
 
-            if window['Open'].iloc[i] > prev_close and window['Close'].iloc[i] > prev_close:
+            if current_open > prev_close and current_close > prev_close:
                 pattern += "A"
-            elif window['Open'].iloc[i] < prev_close and window['Close'].iloc[i] < prev_close:
+            elif current_open < prev_close and current_close < prev_close:
                 pattern += "B"
+            elif current_open > prev_close:
+                pattern += "O"
+            elif current_close > prev_close:
+                pattern += "C"
+            elif current_open < prev_close:
+                pattern += "X"
+            elif current_close < prev_close:
+                pattern += "Y"
 
             pattern_list.append(pattern)
 
@@ -72,7 +82,7 @@ if __name__ == "__main__":
     symbol = "AAPL"
     data = download_data(symbol)
     min_window_size = 5
-    max_window_size = 20  # Added a maximum window size to expand the search
+    max_window_size = min_window_size * 5
     min_occurrences = 5
     accuracy_threshold = 0.95
 
