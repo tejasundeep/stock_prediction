@@ -23,7 +23,7 @@ def find_custom_patterns(data: pd.DataFrame, min_window_size: int, min_occurrenc
     accuracy_counts = {}
     high_accuracy_patterns = {}
 
-    for window_size in range(min_window_size, min_window_size * 2):
+    for window_size in range(min_window_size, min_window_size * 5):
         for i in range(0, len(data) - window_size):
             window = data.iloc[i:i + window_size]
             pattern = build_pattern(window)
