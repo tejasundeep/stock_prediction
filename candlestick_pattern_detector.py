@@ -1,8 +1,9 @@
 import yfinance as yf
 import pandas as pd
-from typing import Dict
+from typing import Dict, Optional
 
 def download_data(symbol: str, interval: str = "1m", period: str = "1d") -> pd.DataFrame:
+    """Download stock data using yfinance library."""
     try:
         return yf.download(symbol, interval=interval, period=period)
     except Exception as e:
@@ -10,22 +11,27 @@ def download_data(symbol: str, interval: str = "1m", period: str = "1d") -> pd.D
         return pd.DataFrame()
 
 def build_pattern(window: pd.DataFrame) -> str:
-    pattern_list = [
-        "G" if window['Close'].iloc[i] > window['Open'].iloc[i] else "R"
-        for i in range(len(window))
-    ]
-    return "".join(pattern_list)
+    """Build pattern string based on window of stock data."""
+    return "".join(
+        "G" if row['Close'] > row['Open'] else "R"
+        for _, row in window.iterrows()
+    )
 
-def find_custom_patterns(data: pd.DataFrame, min_window_size: int, min_occurrences: int, accuracy_threshold: float, max_window_size: int) -> Dict:
+def calculate_pattern_accuracy(counts: Dict[str, int]) -> float:
+    """Calculate accuracy of a particular pattern."""
+    return max(counts['G'], counts['R']) / counts['Total']
+
+def find_high_accuracy_patterns(data: pd.DataFrame, min_window_size: int, max_window_size: int, min_occurrences: int, accuracy_threshold: float) -> Dict[str, Dict]:
+    """Find high-accuracy patterns in stock data."""
     if data.empty:
         print("No data to process.")
         return {}
-    
+
     accuracy_counts = {}
     high_accuracy_patterns = {}
 
-    for window_size in range(min_window_size, max_window_size+1):
-        for i in range(0, len(data) - window_size - 1):  # -1 to leave room for the next candle
+    for window_size in range(min_window_size, max_window_size + 1):
+        for i in range(0, len(data) - window_size - 1):  
             window = data.iloc[i:i + window_size]
             pattern = build_pattern(window)
 
@@ -38,33 +44,35 @@ def find_custom_patterns(data: pd.DataFrame, min_window_size: int, min_occurrenc
 
     for pattern, counts in accuracy_counts.items():
         if counts['Total'] >= min_occurrences:
-            accuracy = max(counts['G'], counts['R']) / counts['Total']
+            accuracy = calculate_pattern_accuracy(counts)
             if accuracy >= accuracy_threshold:
-                high_accuracy_patterns[pattern] = counts
-                high_accuracy_patterns[pattern]['Accuracy'] = accuracy * 100
+                high_accuracy_patterns[pattern] = {**counts, 'Accuracy': accuracy * 100}
 
     return high_accuracy_patterns
 
-def predict_next_move(data: pd.DataFrame, high_accuracy_patterns: Dict, min_window_size: int) -> None:
-    last_window = data.iloc[-min_window_size:]
+def predict_next_move(data: pd.DataFrame, high_accuracy_patterns: Dict[str, Dict], window_size: int) -> None:
+    """Predict next move based on the last pattern and high-accuracy patterns."""
+    last_window = data.iloc[-window_size:]
     last_pattern = build_pattern(last_window)
+    pattern_data = high_accuracy_patterns.get(last_pattern, None)
 
-    if last_pattern in high_accuracy_patterns:
-        likely_move = 'G' if high_accuracy_patterns[last_pattern]['G'] > high_accuracy_patterns[last_pattern]['R'] else 'R'
-        accuracy = high_accuracy_patterns[last_pattern]['Accuracy']
-        print(f"Next likely move: {likely_move}, Accuracy: {accuracy}%")
+    if pattern_data:
+        likely_move = 'G' if pattern_data['G'] > pattern_data['R'] else 'R'
+        print(f"Next likely move: {likely_move}, Accuracy: {pattern_data['Accuracy']:.2f}%")
     else:
-        print("No pattern found.")
+        print("No pattern found for prediction.")
 
 if __name__ == "__main__":
     symbol = "AAPL"
-    data = download_data(symbol)
+    interval = "1m"
+    period = "1d"
     min_window_size = 2
     min_occurrences = 4
     accuracy_threshold = 0.9
     max_window_size = min_window_size ** 5
 
-    high_accuracy_patterns = find_custom_patterns(data, min_window_size, min_occurrences, accuracy_threshold, max_window_size)
+    data = download_data(symbol, interval, period)
+    high_accuracy_patterns = find_high_accuracy_patterns(data, min_window_size, max_window_size, min_occurrences, accuracy_threshold)
 
     print("High accuracy patterns:")
     for pattern, counts in high_accuracy_patterns.items():
