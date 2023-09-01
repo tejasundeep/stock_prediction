@@ -1,6 +1,6 @@
 import yfinance as yf
 import pandas as pd
-from typing import Dict, Optional
+from typing import Dict
 
 def download_data(symbol: str, interval: str = "1m", period: str = "1d") -> pd.DataFrame:
     """Download stock data using yfinance library."""
@@ -67,16 +67,16 @@ if __name__ == "__main__":
     interval = "1m"
     period = "1d"
     min_window_size = 2
-    min_occurrences = 4
+    min_occurrences = 2
     accuracy_threshold = 0.9
-    max_window_size = min_window_size ** 5
+    max_window_size = min_window_size ** 10
 
     data = download_data(symbol, interval, period)
     high_accuracy_patterns = find_high_accuracy_patterns(data, min_window_size, max_window_size, min_occurrences, accuracy_threshold)
 
     print("High accuracy patterns:")
     for pattern, counts in high_accuracy_patterns.items():
-        print(f"Pattern: {pattern}, Counts: {counts}, Accuracy: {counts['Accuracy']:.2f}%")
+        print(f"Pattern: {pattern}, Counts: {counts}")
 
     print("Predicting the next move based on the last pattern:")
     predict_next_move(data, high_accuracy_patterns, min_window_size)
