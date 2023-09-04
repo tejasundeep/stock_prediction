@@ -1,7 +1,6 @@
 import yfinance as yf
 import random
 import numpy as np
-from collections import deque
 from keras.models import Model
 from keras.layers import Dense, Dropout, Input, Lambda
 from keras.optimizers import Adam
@@ -10,13 +9,13 @@ import keras.backend as K
 def fetch_stock_data(symbol, period):
     stock_data = yf.download(symbol, period=period)
     close_prices = stock_data['Close'].tolist()
-    return close_prices  # Removed the truncation of the last 7 days
+    return close_prices
 
 def get_state(data, t, n):
     d = t - n + 1
     block = data[d:t + 1] if d >= 0 else -d * [data[0]] + data[0:t + 1]
     res = np.array([block[i + 1] - block[i] for i in range(n - 1)])
-    res = (res - np.mean(res)) / np.std(res)  # Normalize
+    res = (res - np.mean(res)) / np.std(res)
     return np.reshape(res, [1, n - 1])
 
 def build_model(input_shape, action_space):
@@ -37,6 +36,22 @@ def build_model(input_shape, action_space):
     
     return model
 
+# Hindsight Experience Replay
+def hindsight_experience_replay(model, state, next_state, gamma):
+    hindsight_action = 1 - np.argmax(model.predict(state)[0])
+    hindsight_reward = 0
+
+    if hindsight_action == 0:
+        hindsight_reward = data[t + 1] - data[t]
+    elif hindsight_action == 1:
+        hindsight_reward = data[t] - data[t + 1]
+    
+    hindsight_target = hindsight_reward + gamma * np.amax(model.predict(next_state)[0])
+    hindsight_target_f = model.predict(state)
+    hindsight_target_f[0][hindsight_action] = hindsight_target
+    
+    model.fit(state, hindsight_target_f, epochs=1, verbose=0)
+  
 # Parameters
 symbol = 'AAPL'
 period = '1mo'
@@ -46,8 +61,7 @@ epsilon_decay = 0.995
 min_epsilon = 0.01
 gamma = 0.9
 n = 5
-batch_size = 32
-memory = deque(maxlen=5000)
+hindsight_episode = random.randint(1, 100)
 
 model = build_model((n - 1,), 2)
 
@@ -74,22 +88,19 @@ for episode in range(1, 101):
         elif action == 1:
             reward = data[t] - data[t + 1]
         
-        memory.append((state, action, reward, next_state))
+        target = reward + gamma * np.amax(model.predict(next_state)[0])
         
-        if len(memory) >= batch_size:
-            minibatch = random.sample(memory, batch_size)
-            for state, action, reward, next_state in minibatch:
-                target = reward + gamma * np.amax(model.predict(next_state)[0])
-                done = (t == len(data) - 2)
-                if done:
-                    target = reward
-                target_f = model.predict(state)
-                target_f[0][action] = target
-                model.fit(state, target_f, epochs=1, verbose=0)
+        target_f = model.predict(state)
+        target_f[0][action] = target
+        model.fit(state, target_f, epochs=1, verbose=0)
         
         state = next_state
         total_reward += reward
-    
+        
+        # Apply HER
+        if episode == hindsight_episode:
+            hindsight_experience_replay(model, state, next_state, gamma)
+        
     epsilon = max(min_epsilon, epsilon_decay * epsilon)
     print(f'Episode: {episode}, Total Reward: {total_reward}')
 
