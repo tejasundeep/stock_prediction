@@ -25,10 +25,22 @@ def get_state_with_returns(data, volume, t, n, history_length=10):
     d = t - history_length + 1
     block = data[d:t + 1] if d >= 0 else -d * [data[0]] + data[0:t + 1]
     price_change = np.array([block[i + 1] - block[i] for i in range(history_length - 1)])
-    price_change = (price_change - np.mean(price_change)) / np.std(price_change)
+
+    # Check if standard deviation is zero
+    price_std = np.std(price_change)
+    if price_std != 0:
+        price_change = (price_change - np.mean(price_change)) / price_std
+    else:
+        price_change = np.zeros_like(price_change)
 
     volume_block = volume[d:t + 1] if d >= 0 else -d * [volume[0]] + volume[0:t + 1]
-    normalized_volume = (np.array(volume_block) - np.mean(volume_block)) / np.std(volume_block)
+
+    # Check if standard deviation is zero
+    volume_std = np.std(volume_block)
+    if volume_std != 0:
+        normalized_volume = (np.array(volume_block) - np.mean(volume_block)) / volume_std
+    else:
+        normalized_volume = np.zeros_like(volume_block)
 
     combined_state = np.concatenate((price_change, normalized_volume[-1:]))
     daily_returns = np.array([data[i + 1] / data[i] - 1 for i in range(len(data) - 1)])
